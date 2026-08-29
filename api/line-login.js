@@ -1,13 +1,11 @@
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import admin from 'firebase-admin';
 
 let initError = null;
 
 try {
-  if (!getApps().length) {
-    initializeApp({
-      credential: cert({
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert({
         projectId: process.env.FIREBASE_PROJECT_ID,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
         privateKey: process.env.FIREBASE_PRIVATE_KEY
@@ -20,19 +18,11 @@ try {
   initError = e.message;
 }
 
-const adminAuth = getApps().length ? getAuth() : null;
-const adminDb = getApps().length ? getFirestore() : null;
-
 export default async function handler(req, res) {
-  // 🆕 ถ้า Firebase Admin ตั้งค่าไม่สำเร็จ จะเห็น error จริงตรงนี้แทนที่จะพังเงียบๆ
   if (initError) {
     return res.status(500).json({
       error: 'Firebase Admin เริ่มต้นไม่สำเร็จ',
-      detail: initError,
-      hasProjectId: !!process.env.FIREBASE_PROJECT_ID,
-      hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
-      hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
-      hasChannelId: !!process.env.LINE_CHANNEL_ID
+      detail: initError
     });
   }
 
@@ -64,11 +54,11 @@ export default async function handler(req, res) {
     const lineUserId = verifyData.sub;
     const uid = `line_${lineUserId}`;
 
-    const userDocRef = adminDb.collection('users').doc(uid);
+    const userDocRef = admin.firestore().collection('users').doc(uid);
     const userDoc = await userDocRef.get();
     const isNewUser = !userDoc.exists;
 
-    const customToken = await adminAuth.createCustomToken(uid);
+    const customToken = await admin.auth().createCustomToken(uid);
 
     return res.status(200).json({ customToken, isNewUser, lineName: verifyData.name || '' });
   } catch (err) {
