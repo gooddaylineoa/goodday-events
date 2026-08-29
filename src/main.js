@@ -192,7 +192,11 @@ function setEventTab(tab) {
   document.getElementById(`ev-tab-${tab}`).classList.add('theme-text');
 }
 document.getElementById('ev-tab-events').onclick = () => { setEventTab('events'); showView('events-view'); };
-document.getElementById('ev-tab-calendar').onclick = () => { setEventTab('calendar'); showView('events-calendar-view'); };
+document.getElementById('ev-tab-calendar').onclick = () => {
+  setEventTab('calendar');
+  showView('events-calendar-view');
+  renderCalendar();
+};
 document.getElementById('ev-tab-history').onclick = () => { setEventTab('history'); showView('events-history-view'); };
 
 // --- Loading overlay ---
@@ -322,3 +326,109 @@ document.getElementById('btn-booking-done').onclick = async () => {
   showView('events-view');
   await loadEventsData(); // โหลดใหม่ให้เห็นที่นั่งอัปเดต
 };
+
+// ================= ปฏิทินกิจกรรม =================
+
+let calCurrentMonth = new Date().getMonth();
+let calCurrentYear = new Date().getFullYear();
+let calSelectedDate = null;
+
+const thaiMonths = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+function formatDateKey(y, m, d) {
+  const mm = String(m + 1).padStart(2, '0');
+  const dd = String(d).padStart(2, '0');
+  return `${y}-${mm}-${dd}`;
+}
+
+// รวมวันที่ทั้งหมดที่มีกิจกรรม จาก allEventsData (ใช้ตัวแปรร่วมกับหน้ากิจกรรมที่มีอยู่แล้ว)
+function getEventDatesSet() {
+  const dates = new Set();
+  allEventsData.forEach(ev => {
+    (ev.slots || []).forEach(slot => dates.add(slot.date));
+  });
+  return dates;
+}
+
+function renderCalendar() {
+  document.getElementById('cal-month-label').innerText = `${thaiMonths[calCurrentMonth]} ${calCurrentYear + 543}`;
+
+  const firstDay = new Date(calCurrentYear, calCurrentMonth, 1).getDay(); // 0=อาทิตย์
+  const daysInMonth = new Date(calCurrentYear, calCurrentMonth + 1, 0).getDate();
+  const eventDates = getEventDatesSet();
+  const todayKey = formatDateKey(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+
+  let html = '';
+  for (let i = 0; i < firstDay; i++) {
+    html += `<div></div>`;
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = formatDateKey(calCurrentYear, calCurrentMonth, d);
+    const hasEvent = eventDates.has(key);
+    const isToday = key === todayKey;
+    const isSelected = key === calSelectedDate;
+
+    let cellClass = 'w-full aspect-square rounded-xl flex flex-col items-center justify-center text-base font-bold cursor-pointer relative';
+    if (isSelected) cellClass += ' theme-pink text-white';
+    else if (isToday) cellClass += ' bg-pink-50 theme-text border-2 border-pink-300';
+    else cellClass += ' text-gray-700 hover:bg-gray-50';
+
+    html += `
+      <div class="${cellClass}" data-date="${key}" onclick="selectCalendarDate('${key}')">
+        ${d}
+        ${hasEvent ? `<span class="absolute bottom-1.5 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-pink-500'}"></span>` : ''}
+      </div>`;
+  }
+  document.getElementById('cal-grid').innerHTML = html;
+}
+
+document.getElementById('cal-prev-month').onclick = () => {
+  calCurrentMonth--;
+  if (calCurrentMonth < 0) { calCurrentMonth = 11; calCurrentYear--; }
+  renderCalendar();
+};
+document.getElementById('cal-next-month').onclick = () => {
+  calCurrentMonth++;
+  if (calCurrentMonth > 11) { calCurrentMonth = 0; calCurrentYear++; }
+  renderCalendar();
+};
+
+function selectCalendarDate(dateKey) {
+  calSelectedDate = dateKey;
+  renderCalendar();
+  renderCalendarEventsList(dateKey);
+}
+window.selectCalendarDate = selectCalendarDate;
+
+function renderCalendarEventsList(dateKey) {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  document.getElementById('cal-selected-date-label').innerText = `กิจกรรมวันที่ ${d} ${thaiMonths[m - 1]} ${y + 543}`;
+
+  const container = document.getElementById('cal-events-list');
+  const matched = allEventsData.filter(ev => (ev.slots || []).some(s => s.date === dateKey));
+
+  if (matched.length === 0) {
+    container.innerHTML = '<p class="text-center text-gray-400 text-base py-8">ไม่มีกิจกรรมในวันนี้</p>';
+    return;
+  }
+
+  container.innerHTML = matched.map(ev => {
+    const eligible = isEventEligible(ev, userAgeForEvents, userProvinceForEvents);
+    const slotForDay = (ev.slots || []).find(s => s.date === dateKey);
+    return `
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 cursor-pointer" onclick="${eligible ? `openEventDetail('${ev.id}')` : `showToast('กิจกรรมนี้ไม่ตรงเงื่อนไขอายุของคุณ', 'error')`}">
+        <img src="${ev.image}" class="w-16 h-16 rounded-xl object-cover shrink-0">
+        <div class="flex-1">
+          <h4 class="font-black text-gray-800 text-base leading-tight mb-1">${ev.name}</h4>
+          <p class="text-sm text-gray-400"><i class="fa-regular fa-clock mr-1"></i>${slotForDay.startTime}-${slotForDay.endTime}</p>
+        </div>
+        <i class="fa-solid fa-chevron-right text-gray-300"></i>
+      </div>`;
+  }).join('');
+}
+
+// แถบเมนูล่างของหน้าปฏิทิน (สลับกลับไปหน้าอื่น)
+document.getElementById('cal-tab-events').onclick = () => { showView('events-view'); setEventTab('events'); };
+document.getElementById('cal-tab-calendar').onclick = () => { showView('events-calendar-view'); };
+document.getElementById('cal-tab-history').onclick = () => { showView('events-history-view'); setEventTab('history'); };
+
