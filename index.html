@@ -123,8 +123,93 @@
     </div>
 
     <div id="events-history-view" class="page-section bg-gray-50 min-h-screen pb-24">
-      <div class="theme-pink text-white p-4"><h2 class="text-xl font-bold">ประวัติกิจกรรม</h2></div>
-      <div class="p-6 text-center text-gray-400 text-lg">🚧 กำลังพัฒนา</div>
+      <div class="theme-pink text-white p-4 sticky top-0 z-40">
+        <h2 class="text-xl font-bold">ประวัติกิจกรรม</h2>
+      </div>
+
+      <div class="p-4">
+        <div class="grid grid-cols-2 gap-3 mb-5">
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 text-center">
+            <p class="text-3xl font-black theme-text" id="hist-total-count">0</p>
+            <p class="text-sm text-gray-500 font-bold mt-1">กิจกรรมที่เข้าร่วม</p>
+          </div>
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 text-center">
+            <p class="text-3xl font-black theme-text" id="hist-category-count">0</p>
+            <p class="text-sm text-gray-500 font-bold mt-1">หมวดหมู่ที่ร่วม</p>
+          </div>
+        </div>
+
+        <div id="hist-list-container" class="space-y-3 pb-10"></div>
+      </div>
+
+      <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-200 flex z-50">
+        <button id="hist-tab-events" class="flex-1 py-3 flex flex-col items-center gap-1 text-gray-400">
+          <i class="fa-solid fa-list text-xl"></i><span class="text-sm font-bold">กิจกรรม</span>
+        </button>
+        <button id="hist-tab-calendar" class="flex-1 py-3 flex flex-col items-center gap-1 text-gray-400">
+          <i class="fa-solid fa-calendar-days text-xl"></i><span class="text-sm font-bold">ปฏิทิน</span>
+        </button>
+        <button id="hist-tab-history" class="flex-1 py-3 flex flex-col items-center gap-1 theme-text">
+          <i class="fa-solid fa-clock-rotate-left text-xl"></i><span class="text-sm font-bold">ประวัติ</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- รายละเอียดการจอง -->
+    <div id="booking-detail-view" class="page-section bg-white min-h-screen pb-10">
+      <div class="theme-pink text-white p-4 flex items-center gap-3 sticky top-0 z-40">
+        <button id="btn-back-booking-detail" class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center"><i class="fa-solid fa-arrow-left text-lg"></i></button>
+        <h2 class="text-xl font-bold">รายละเอียดการจอง</h2>
+      </div>
+
+      <img id="bd-image" src="" class="w-full h-48 object-cover">
+
+      <div class="p-4">
+        <span id="bd-status-badge" class="inline-block text-sm font-bold px-3 py-1.5 rounded-full mb-3"></span>
+        <h2 id="bd-title" class="text-2xl font-black text-gray-800 mb-2">ชื่อกิจกรรม</h2>
+        <p id="bd-desc" class="text-gray-600 text-lg leading-relaxed mb-4"></p>
+
+        <div class="bg-gray-50 rounded-2xl p-4 mb-4 space-y-2">
+          <p class="text-base text-gray-700"><i class="fa-regular fa-calendar mr-2 theme-text"></i><span id="bd-datetime"></span></p>
+          <p class="text-base text-gray-700"><i class="fa-solid fa-location-dot mr-2 theme-text"></i><span id="bd-location"></span></p>
+        </div>
+
+        <div class="flex gap-3 mb-6">
+          <a id="bd-map-link" href="#" target="_blank" class="flex-1 bg-blue-50 text-blue-600 text-lg font-bold py-3 rounded-xl text-center">
+            <i class="fa-solid fa-map-location-dot mr-2"></i>ดูแผนที่
+          </a>
+          <a id="bd-file-link" href="#" target="_blank" class="hidden flex-1 bg-amber-50 text-amber-600 text-lg font-bold py-3 rounded-xl text-center">
+            <i class="fa-solid fa-file-lines mr-2"></i>ไฟล์โครงการ
+          </a>
+        </div>
+
+        <div id="bd-qr-box" class="bg-white rounded-3xl shadow-md border border-gray-100 p-6 text-center mb-6">
+          <p class="text-gray-400 text-base font-bold mb-1">รหัสจอง</p>
+          <p id="bd-code" class="text-4xl font-black theme-text tracking-widest mb-4">------</p>
+          <img id="bd-qr" src="" class="w-48 h-48 mx-auto">
+          <p class="text-gray-400 text-sm mt-3">แสดงหน้านี้ให้เจ้าหน้าที่สแกนวันงาน</p>
+        </div>
+
+        <button id="btn-cancel-booking" class="w-full bg-rose-50 text-rose-600 py-4 rounded-2xl font-black text-lg mb-3">ยกเลิกการจอง</button>
+        <button id="btn-give-feedback" class="hidden w-full bg-amber-500 text-white py-4 rounded-2xl font-black text-lg">ให้คะแนนกิจกรรมนี้</button>
+      </div>
+    </div>
+
+    <!-- ฟอร์มให้ feedback -->
+    <div id="feedback-form-view" class="page-section bg-white min-h-screen pb-10">
+      <div class="theme-pink text-white p-4 flex items-center gap-3 sticky top-0 z-40">
+        <button id="btn-back-feedback" class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center"><i class="fa-solid fa-arrow-left text-lg"></i></button>
+        <h2 class="text-xl font-bold">ให้คะแนนกิจกรรม</h2>
+      </div>
+      <div class="p-4">
+        <h3 id="fb-event-name" class="text-xl font-black text-gray-800 mb-4">-</h3>
+        <p class="text-lg font-bold text-gray-700 mb-3">คุณพึงพอใจกิจกรรมนี้แค่ไหน?</p>
+        <div class="flex justify-center gap-3 mb-6" id="fb-rating-stars"></div>
+        <label class="text-lg font-bold text-gray-700 mb-2 block">ความคิดเห็นเพิ่มเติม</label>
+        <textarea id="fb-comment" rows="4" class="form-input" placeholder="บอกเราหน่อยว่ากิจกรรมนี้เป็นอย่างไรบ้าง..."></textarea>
+        <div id="fb-error" class="bg-red-50 text-red-600 text-lg p-3 rounded-lg text-center font-bold hidden mt-3"></div>
+        <button id="btn-submit-feedback" class="w-full theme-pink text-white py-4 rounded-2xl font-black text-xl mt-4">ส่งความคิดเห็น</button>
+      </div>
     </div>
 
     <!-- รายละเอียดกิจกรรม + เลือกรอบเวลา -->

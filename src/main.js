@@ -1,6 +1,6 @@
 import { auth, db } from './firebase.js';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, getDocs, collection } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, query, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { initLineAuth } from './lineAuth.js';
 
 // --- Toast แจ้งเตือน ---
@@ -431,4 +431,201 @@ function renderCalendarEventsList(dateKey) {
 document.getElementById('cal-tab-events').onclick = () => { showView('events-view'); setEventTab('events'); };
 document.getElementById('cal-tab-calendar').onclick = () => { showView('events-calendar-view'); };
 document.getElementById('cal-tab-history').onclick = () => { showView('events-history-view'); setEventTab('history'); };
+
+// ================= ประวัติการจอง =================
+
+let allBookingsData = [];
+let currentBookingDetail = null;
+
+document.getElementById('hist-tab-events').onclick = () => { showView('events-view'); setEventTab('events'); };
+document.getElementById('hist-tab-calendar').onclick = () => { showView('events-calendar-view'); renderCalendar(); };
+document.getElementById('hist-tab-history').onclick = () => { showView('events-history-view'); };
+
+document.getElementById('ev-tab-history').onclick = () => {
+  setEventTab('history');
+  showView('events-history-view');
+  loadBookingHistory();
+};
+
+async function loadBookingHistory() {
+  const container = document.getElementById('hist-list-container');
+  container.innerHTML = '<p class="text-center text-gray-400 text-lg py-8">กำลังโหลด...</p>';
+
+  const q = query(collection(db, 'users', currentUid, 'eventBookings'), orderBy('createdAt', 'desc'));
+  const snap = await getDocs(q);
+
+  allBookingsData = [];
+  snap.forEach(d => allBookingsData.push({ id: d.id, ...d.data() }));
+
+  // สรุปสถิติ (นับเฉพาะที่ไม่ได้ยกเลิก)
+  const activeBookings = allBookingsData.filter(b => b.status !== 'cancelled');
+  document.getElementById('hist-total-count').innerText = activeBookings.length;
+  const uniqueCategories = new Set(activeBookings.map(b => b.eventCategory).filter(Boolean));
+  document.getElementById('hist-category-count').innerText = uniqueCategories.size;
+
+  if (allBookingsData.length === 0) {
+    container.innerHTML = '<p class="text-center text-gray-400 text-lg py-8">ยังไม่มีประวัติการจอง</p>';
+    return;
+  }
+
+  const statusLabel = { booked: 'จองแล้ว', cancelled: 'ยกเลิกแล้ว', attended: 'เข้าร่วมแล้ว' };
+  const statusColor = { booked: 'bg-emerald-50 text-emerald-600', cancelled: 'bg-gray-100 text-gray-400', attended: 'bg-blue-50 text-blue-600' };
+
+  container.innerHTML = allBookingsData.map(b => `
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 cursor-pointer" onclick="openBookingDetail('${b.id}')">
+      <img src="${b.eventImage || ''}" class="w-16 h-16 rounded-xl object-cover shrink-0 bg-gray-100">
+      <div class="flex-1">
+        <h4 class="font-black text-gray-800 text-base leading-tight mb-1">${b.eventName}</h4>
+        <p class="text-sm text-gray-400">${b.slotDate} | ${b.slotTime}</p>
+      </div>
+      <span class="text-xs font-bold px-2.5 py-1 rounded-full shrink-0 ${statusColor[b.status] || ''}">${statusLabel[b.status] || b.status}</span>
+    </div>
+  `).join('');
+}
+
+function isEventPast(slotDate, slotTime) {
+  const endTime = slotTime.split('-')[1]; // เช่น "18:00"
+  const eventEnd = new Date(`${slotDate}T${endTime}:00`);
+  return new Date() > eventEnd;
+}
+
+function openBookingDetail(bookingId) {
+  const b = allBookingsData.find(x => x.id === bookingId);
+  if (!b) return;
+  currentBookingDetail = b;
+
+  document.getElementById('bd-image').src = b.eventImage || '';
+  document.getElementById('bd-title').innerText = b.eventName;
+  document.getElementById('bd-desc').innerText = b.eventDescription || '';
+  document.getElementById('bd-datetime').innerText = `${b.slotDate} | ${b.slotTime}`;
+  document.getElementById('bd-location').innerText = b.eventLocation || '-';
+  document.getElementById('bd-map-link').href = b.eventMapLink || '#';
+
+  const fileLink = document.getElementById('bd-file-link');
+  if (b.eventProjectFileUrl) {
+    fileLink.href = b.eventProjectFileUrl;
+    fileLink.classList.remove('hidden');
+  } else {
+    fileLink.classList.add('hidden');
+  }
+
+  const statusLabel = { booked: 'จองแล้ว', cancelled: 'ยกเลิกแล้ว', attended: 'เข้าร่วมแล้ว' };
+  const statusColor = { booked: 'bg-emerald-50 text-emerald-600', cancelled: 'bg-gray-100 text-gray-400', attended: 'bg-blue-50 text-blue-600' };
+  const badge = document.getElementById('bd-status-badge');
+  badge.innerText = statusLabel[b.status] || b.status;
+  badge.className = `inline-block text-sm font-bold px-3 py-1.5 rounded-full mb-3 ${statusColor[b.status] || ''}`;
+
+  const qrBox = document.getElementById('bd-qr-box');
+  const cancelBtn = document.getElementById('btn-cancel-booking');
+  const feedbackBtn = document.getElementById('btn-give-feedback');
+  const isPast = isEventPast(b.slotDate, b.slotTime);
+
+  if (b.status === 'booked') {
+    document.getElementById('bd-code').innerText = b.bookingCode;
+    document.getElementById('bd-qr').src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(currentUid + '|' + b.id)}`;
+    qrBox.classList.remove('hidden');
+    cancelBtn.classList.toggle('hidden', isPast);
+    feedbackBtn.classList.toggle('hidden', !isPast);
+  } else {
+    qrBox.classList.add('hidden');
+    cancelBtn.classList.add('hidden');
+    feedbackBtn.classList.toggle('hidden', !(isPast && b.status !== 'cancelled'));
+  }
+
+  showView('booking-detail-view');
+}
+window.openBookingDetail = openBookingDetail;
+
+document.getElementById('btn-back-booking-detail').onclick = () => showView('events-history-view');
+
+document.getElementById('btn-cancel-booking').onclick = async () => {
+  if (!currentBookingDetail) return;
+  if (!confirm('ยืนยันยกเลิกการจองนี้หรือไม่? ที่นั่งจะถูกคืนให้กิจกรรม')) return;
+
+  showLoading('กำลังยกเลิกการจอง...');
+  try {
+    const res = await fetch('/api/cancel-booking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uid: currentUid,
+        bookingId: currentBookingDetail.id,
+        eventId: currentBookingDetail.eventId,
+        slotId: currentBookingDetail.slotId
+      })
+    });
+    const data = await res.json();
+    hideLoading();
+
+    if (!res.ok) {
+      showToast(data.error || 'ยกเลิกไม่สำเร็จ', 'error');
+      return;
+    }
+
+    showToast('ยกเลิกการจองสำเร็จ', 'success');
+    showView('events-history-view');
+    await loadBookingHistory();
+  } catch (err) {
+    hideLoading();
+    showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
+  }
+};
+
+// --- ฟอร์ม Feedback ---
+let selectedRating = 0;
+
+document.getElementById('btn-give-feedback').onclick = () => {
+  document.getElementById('fb-event-name').innerText = currentBookingDetail.eventName;
+  document.getElementById('fb-comment').value = '';
+  document.getElementById('fb-error').classList.add('hidden');
+  selectedRating = 0;
+  renderFeedbackStars();
+  showView('feedback-form-view');
+};
+
+document.getElementById('btn-back-feedback').onclick = () => showView('booking-detail-view');
+
+function renderFeedbackStars() {
+  const container = document.getElementById('fb-rating-stars');
+  container.innerHTML = [1, 2, 3, 4, 5].map(n => `
+    <button data-star="${n}" class="fb-star-btn text-4xl ${n <= selectedRating ? 'text-amber-400' : 'text-gray-200'}">
+      <i class="fa-solid fa-star"></i>
+    </button>
+  `).join('');
+
+  document.querySelectorAll('.fb-star-btn').forEach(btn => {
+    btn.onclick = () => {
+      selectedRating = Number(btn.dataset.star);
+      renderFeedbackStars();
+    };
+  });
+}
+
+document.getElementById('btn-submit-feedback').onclick = async () => {
+  const errBox = document.getElementById('fb-error');
+  if (selectedRating === 0) {
+    errBox.innerText = 'กรุณาให้คะแนนความพึงพอใจก่อน';
+    errBox.classList.remove('hidden');
+    return;
+  }
+
+  showLoading('กำลังส่งความคิดเห็น...');
+  try {
+    await addDoc(collection(db, 'users', currentUid, 'eventFeedback'), {
+      bookingId: currentBookingDetail.id,
+      eventId: currentBookingDetail.eventId,
+      eventName: currentBookingDetail.eventName,
+      rating: selectedRating,
+      comment: document.getElementById('fb-comment').value.trim(),
+      createdAt: serverTimestamp()
+    });
+    hideLoading();
+    showToast('ขอบคุณสำหรับความคิดเห็น!', 'success');
+    showView('events-history-view');
+  } catch (err) {
+    hideLoading();
+    errBox.innerText = 'เกิดข้อผิดพลาด: ' + err.message;
+    errBox.classList.remove('hidden');
+  }
+};
 

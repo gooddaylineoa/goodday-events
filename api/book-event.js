@@ -46,7 +46,16 @@ export default async function handler(req, res) {
       newSlots[slotIndex] = { ...slot, bookedSeats: slot.bookedSeats + 1 };
       t.update(eventRef, { slots: newSlots });
 
-      return { eventName: eventData.name, slot };
+      return {
+        eventName: eventData.name,
+        eventCategory: eventData.category || '',
+        eventImage: eventData.image || '',
+        eventDescription: eventData.description || '',
+        eventLocation: eventData.location || '',
+        eventMapLink: eventData.mapLink || '',
+        eventProjectFileUrl: eventData.projectFileUrl || '',
+        slot
+      };
     });
 
     const bookingCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -55,6 +64,12 @@ export default async function handler(req, res) {
     await bookingRef.set({
       eventId,
       eventName: result.eventName,
+      eventCategory: result.eventCategory,
+      eventImage: result.eventImage,
+      eventDescription: result.eventDescription,
+      eventLocation: result.eventLocation,
+      eventMapLink: result.eventMapLink,
+      eventProjectFileUrl: result.eventProjectFileUrl,
       slotId,
       slotDate: result.slot.date,
       slotTime: `${result.slot.startTime}-${result.slot.endTime}`,
