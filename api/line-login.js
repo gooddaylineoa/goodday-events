@@ -1,4 +1,5 @@
-import admin from 'firebase-admin';
+import * as adminNS from 'firebase-admin';
+const admin = adminNS.default || adminNS;
 
 let initError = null;
 
@@ -20,10 +21,7 @@ try {
 
 export default async function handler(req, res) {
   if (initError) {
-    return res.status(500).json({
-      error: 'Firebase Admin เริ่มต้นไม่สำเร็จ',
-      detail: initError
-    });
+    return res.status(500).json({ error: 'Firebase Admin เริ่มต้นไม่สำเร็จ', detail: initError });
   }
 
   if (req.method !== 'POST') {
