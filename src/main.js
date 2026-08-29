@@ -17,8 +17,11 @@ window.showToast = showToast;
 
 // --- สลับหน้า ---
 function showView(id) {
-  document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.page-section').forEach(el => {
+    el.style.setProperty('display', 'none', 'important');
+  });
+  const target = document.getElementById(id);
+  target.style.removeProperty('display');
 }
 window.showView = showView;
 
