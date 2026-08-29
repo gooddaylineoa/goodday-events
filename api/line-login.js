@@ -1,12 +1,13 @@
-import * as adminNS from 'firebase-admin';
-const admin = adminNS.default || adminNS;
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import jwt from 'jsonwebtoken';
 
 let initError = null;
 
 try {
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.cert({
+  if (!getApps().length) {
+    initializeApp({
+      credential: cert({
         projectId: process.env.FIREBASE_PROJECT_ID,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
         privateKey: process.env.FIREBASE_PRIVATE_KEY
@@ -17,6 +18,23 @@ try {
   }
 } catch (e) {
   initError = e.message;
+}
+
+const adminDb = getApps().length ? getFirestore() : null;
+
+// 🆕 สร้าง Firebase Custom Token เอง ด้วยการเซ็น JWT ตรงๆ (ไม่ผ่าน firebase-admin/auth)
+function createFirebaseCustomToken(uid) {
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: process.env.FIREBASE_CLIENT_EMAIL,
+    sub: process.env.FIREBASE_CLIENT_EMAIL,
+    aud: 'https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit',
+    iat: now,
+    exp: now + 3600,
+    uid
+  };
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
+  return jwt.sign(payload, privateKey, { algorithm: 'RS256' });
 }
 
 export default async function handler(req, res) {
@@ -52,11 +70,11 @@ export default async function handler(req, res) {
     const lineUserId = verifyData.sub;
     const uid = `line_${lineUserId}`;
 
-    const userDocRef = admin.firestore().collection('users').doc(uid);
+    const userDocRef = adminDb.collection('users').doc(uid);
     const userDoc = await userDocRef.get();
     const isNewUser = !userDoc.exists;
 
-    const customToken = await admin.auth().createCustomToken(uid);
+    const customToken = createFirebaseCustomToken(uid);
 
     return res.status(200).json({ customToken, isNewUser, lineName: verifyData.name || '' });
   } catch (err) {

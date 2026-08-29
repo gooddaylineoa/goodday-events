@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "firebase": "^12.18.0",
-    "firebase-admin": "^14.3.0"
+    "firebase-admin": "^14.3.0",
+    "jsonwebtoken": "^9.0.3"
   }
 }
